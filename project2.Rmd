@@ -1,0 +1,403 @@
+---
+title: "Case Study: Who Plays Video Games"
+output:
+  html_document:
+  fig_caption: yes
+number_sections: yes
+self_contained: yes
+theme: flatly
+toc: true
+toc_depth: 3
+toc_float: true
+code_folding: hide
+---
+  This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+Credits: Some codes were learned from the lab sections (Lab 3, 4, 5) such as Bootstrap, KS Test, and Chi-squared Test, etc.
+```{r}
+# if not install "dplyr", un-comment 1st 2 lines of code
+# install.packages("tidyverse")
+# install.packages("dplyr", verbose=T)
+
+# if still cannot install "dplyr": update "rlang" first
+# install.packages("rlang") # to update rlang. if still not working, remove old rlang and install new rlang
+
+library(dplyr) # needs to be run every time you start R and want to use %>%
+# Import data
+data <- read.table("video.txt", header=TRUE)
+head(data)
+
+#data = subset(data, select = -c(pluralty, outcome, date, sex, race, ed, drace, ded, marital, inc))
+```
+
+```{r}
+hist(data$time, breaks = 31, probability = TRUE, density = 20, col = 3, border = 3, main='Distribution of Time Playing Video Games Prior to the Survey', xlab='Time (hours)')
+lines(density(data$time, bw = 0.25), col = 1)
+lines(density(data$time, bw = 0.5), col = 2)
+rug(data$time)
+```
+```{r}
+# play or not, play = 1, not play = 0
+data$play_or_not <- ifelse(data$time == 0, 0, 1) # if time == 0, note the value as 0, else: not 1
+head(data)
+```
+```{r}
+#num_play <- data %>% filter(time > 0)
+play.percentage <- mean(data$play_or_not)
+play.percentage
+```
+```{r}
+boot.population <- rep(data$play_or_not, length.out = 314)
+length(boot.population)
+```
+```{r}
+sample1 <- sample(boot.population, size = 91, replace = FALSE)
+```
+
+```{r}
+set.seed(189289)
+B = 400 # the number of bootstrap samples we want
+boot.sample <- array(dim = c(B, 91))
+for (i in 1:B) {
+  boot.sample[i, ] <- sample(boot.population, size = 91, replace = FALSE)
+}
+```
+
+```{r}
+boot.mean <- apply(X = boot.sample, MARGIN = 1, FUN = mean)
+head(boot.mean)
+```
+```{r}
+hist(boot.mean, breaks = 27, probability = TRUE, density = 20, col = 3, border = 3, main = 'Bootstrap for Proportion of Students Playing V.Games', xlab='Bootstrap Proportion of Students Playing Games')
+lines(density(boot.mean, adjust = 2), col = 2)
+```
+Check normality by QQ plot
+```{r}
+par(pty = 's')
+qqnorm(boot.mean, main='Normal Q-Q Plot of Bootstrap Proportion Vs. Standard Normal', ylab='Bootstrap Proportion', xlab='Quantiles of Standard Normal')
+qqline(boot.mean)
+```
+```{r}
+ks.test((boot.mean - mean(boot.mean))/sd(boot.mean), pnorm)
+```
+
+```{r}
+boot.sd <- sd(boot.mean)
+play.percentage + c(-1, 1)*1.96*boot.sd
+```
+# Q3: average time, bootstrap
+```{r}
+# Q3
+# clean data
+freq_df = data %>% filter(freq != 99)
+y <- freq_df$time
+x <- freq_df$freq
+# Plot with main and axis titles
+# Change point shape (pch = 19) and remove frame.
+plot(x, y, main = "Relationship between Time Playing Video Games and Frequency of Play",
+     ylab = "Time (Hours)", xlab = "Frequency of Play",
+     pch = 19, frame = FALSE)
+# Add regression line
+abline(lm(y ~ x, data = freq_df), col = "blue")
+
+```
+```{r}
+boot.population <- rep(data$time, length.out = 314)
+length(boot.population)
+```
+```{r}
+sample2 <- sample(boot.population, size = 91, replace = FALSE)
+```
+
+```{r}
+set.seed(189289)
+B = 400 # the number of bootstrap samples we want
+boot.sample <- array(dim = c(B, 91))
+for (i in 1:B) {
+  boot.sample[i, ] <- sample(boot.population, size = 91, replace = FALSE)
+}
+```
+
+```{r}
+boot.mean <- apply(X = boot.sample, MARGIN = 1, FUN = mean)
+head(boot.mean)
+```
+```{r}
+hist(boot.mean, breaks = 20, probability = TRUE, density = 20, col = 3, border = 3, main='Bootstrap for Average Playing Time', xlab='Bootstrap Sample Average (hours)')
+lines(density(boot.mean, adjust = 2), col = 2)
+```
+
+```{r}
+par(pty = 's')
+qqnorm(boot.mean, main='Normal Q-Q Plot of Bootstrap Avg Time Vs. Standard Normal', ylab='Bootstrap Average Time (hours)', xlab='Quantiles of Standard Normal')
+qqline(boot.mean)
+```
+```{r}
+mean_time = mean(data$time)
+boot.sd <- sd(boot.mean)
+mean_time + c(-1, 1)*1.96*boot.sd
+```
+
+```{r}
+#install.packages('e1071')
+library(e1071)                    # load e1071 
+```
+
+```{r}
+# time playing video games from bootstrap observations
+kurtosis(boot.mean)
+skewness(boot.mean)
+```
+```{r}
+library(ggplot2)
+set.seed(123)
+bootobject= NULL
+
+n = 91 
+
+for ( i in 1:B) # B = 400
+{ 
+  bootobject[i] = mean(sample(as.vector(data$time),size=n,replace=TRUE)) 
+}
+
+m=qplot(bootobject, geom="histogram")
+m + geom_histogram(aes(fill = ..count..))
+require(e1071)
+
+kurtosis_=NULL
+for (i in 1:1000)
+{
+  kurtosis_[i]=kurtosis(rnorm(B))
+}
+m=qplot(kurtosis_, geom="histogram", main='Kurtosis from Simulated Distributions')
+m + geom_histogram(aes(fill = ..count..))
+skewness_=NULL
+for (i in 1:1000)
+{
+  skewness_[i]=kurtosis(rnorm(B))
+}
+m=qplot(skewness_, geom="histogram", main='Skewness from Simulated Distributions')
+m + geom_histogram(aes(fill = ..count..))
+```
+
+# Why students like/dislike video games
+
+```{r}
+#install.packages("tree")
+library(tree)
+```
+
+# Remove "never play", "not at all"
+```{r}
+video = data %>% filter(like != 5.0 & like != 1.0)
+video
+```
+
+```{r}
+video['dis_like'] <- rep(NA, dim(video)[1])
+for(i in 1:dim(video)[1]){
+  like <- video[i, 'like']
+  if(like==4){
+    video[i, 'dis_like'] = 0 # dislike = 0
+  }else{
+    video[i, 'dis_like'] = 1 # like = 1
+  }
+}
+video
+```
+
+```{r}
+video['dis_like'] = as.factor(video$dis_like)
+video.tree <- tree(dis_like~educ+sex+age+home+math+work+own+cdrom+grade, data=video)
+plot(video.tree, type="uniform")
+text(video.tree)
+```
+# Remove educ = 99 beforehand
+```{r}
+video = data %>% filter(educ != 99)
+video
+```
+
+```{r}
+video['dis_like'] <- rep(NA, dim(video)[1])
+for(i in 1:dim(video)[1]){
+  like <- video[i, 'like']
+  if(like==1 || like==4 || like==5){
+    video[i, 'dis_like'] = 0 # dislike = 0
+  }else{
+    video[i, 'dis_like'] = 1 # like = 1
+  }
+}
+video
+```
+```{r}
+video['dis_like'] = as.factor(video$dis_like)
+video.tree <- tree(dis_like~educ+sex+age+home+math+work+own+cdrom+grade, data=video)
+plot(video.tree, type="uniform")
+text(video.tree)
+```
+```{r}
+E_i <- c(9,37,27,18)
+O_i <- c(0,8,52,31)
+chi_2 <- sum((O_i - E_i)^2/E_i)
+chi_2
+```
+
+```{r}
+chi2_compare <- qchisq(p = 0.95, df = 4-1)
+chi2_compare
+```
+
+```{r}
+p_value <- 1 - pchisq(chi_2, df = 3)
+p_value
+```
+```{r}
+Residuals <- (O_i - E_i) / sqrt(E_i)
+plot(Residuals, type = 'h', ylab = "standardized residuals", xlab = "Grades", main=' Standardized Residual plot for Goodness-of-fit test on Grades')
+abline(h=0, col='lightgray')
+```
+
+```{r}
+E_i <- c(8, 31, 23, 16)
+O_i <- c(0, 7, 43, 28)
+chi_2 <- sum((O_i - E_i)^2/E_i)
+chi_2
+```
+```{r}
+chi2_compare <- qchisq(p = 0.95, df = 4-1)
+chi2_compare
+```
+
+```{r}
+p_value <- 1 - pchisq(chi_2, df = 3)
+p_value
+```
+
+```{r}
+Residuals <- (O_i - E_i) / sqrt(E_i)
+plot(Residuals, type = 'h', ylab = "standardized residuals", xlab = "Grades", main=' Standardized Residual plot for Goodness-of-fit test on Grades')
+abline(h = 0, col='lightgray')
+```
+# Jackknife
+```{r}
+p_time = data$time
+# delete 1 data point
+jack <- numeric(length(p_time)-1)
+# generate a vector of the 91 (n) jackknife sample means
+jack_mean <- numeric(length(p_time))
+
+
+for (i in 1:length(p_time)) # make 91 jackknife samples
+{
+# the i-th value is removed from the i-th sample
+for (j in 1:length(p_time)){
+  if(j < i) {
+    jack[j] <- p_time[j]
+  }
+  else if(j > i){
+    jack[j-1] <- p_time[j]}
+}
+
+# compute the mean
+jack_mean[i] <- mean(jack)
+}
+```
+
+
+```{r}
+hist(jack_mean, probability = TRUE, density = 20, col = 3, border = 3, freq=F, main='Jackknife for Average Playing Time', xlab='Average Time (hours)')
+lines(density(jack_mean, adjust = 2), col = 2)
+```
+
+```{r}
+# 95%CI
+mean(jack_mean) + qt(0.975,length(p_time)-1)*sqrt(var(jack_mean)/length(p_time))
+
+mean(jack_mean) - qt(0.975,length(p_time)-1)*sqrt(var(jack_mean)/length(p_time))
+
+```
+
+# Jackknife for fraction
+```{r}
+p_play = data$play_or_not
+# delete 1 data point
+jack_play <- numeric(length(p_play)-1)
+# generate a vector of the 91 (n) jackknife sample means
+jack_prop <- numeric(length(p_play))
+
+
+for (i in 1:length(p_play)) # make 91 jackknife samples
+{
+# the i-th value is removed from the i-th sample
+for (j in 1:length(p_play)){
+  if(j < i) {
+    jack_play[j] <- p_play[j]
+  }
+  else if(j > i){
+    jack_play[j-1] <- p_play[j]}
+}
+
+# compute the mean
+jack_prop[i] <- mean(jack_play)
+}
+```
+
+
+```{r}
+hist(jack_prop, probability = TRUE, density = 20, col = 3, border = 3, freq=F, main='Jackknife for Proportion of Students Playing V.Games', xlab='Jackknife Proportion')
+lines(density(jack_prop, adjust = 2), col = 2)
+```
+```{r}
+# 95%CI
+mean(jack_prop) + qt(0.975,length(p_play)-1)*sqrt(var(jack_prop)/length(p_play))
+
+mean(jack_prop) - qt(0.975,length(p_play)-1)*sqrt(var(jack_prop)/length(p_play))
+
+```
+
+Cross tabulation + Graphics
+```{r}
+#cross tab is from descr library
+#install.packages('descr')
+library(descr)
+#crosstab(video$like, video$sex, xlab= 'Sex', ylab = 'Enjoyment of Video Games')
+#crosstab(video$own, video$like, xlab= 'Computer Ownership', ylab = 'Enjoyment of Video Games')
+
+#work with a copied data frame to not erase information for other graphs
+video_w = data %>% filter(work !=99)
+
+#create new column of data frame to store clean work values
+data['work_collapsed'] <- rep(NA, dim(data)[1])
+
+
+
+#loop through each value in column and change based on value
+for(i in 1:dim(video_w)[1]){
+        work <- video_w[i, 'work']
+        # about 32 to 35 hr/wk is deemed full time
+        if( (work > 0) && (work < 32) ){
+                data[i, 'work_collapsed'] = "part time"
+        }else if(work >= 32){
+                data[i, 'work_collapsed'] = "full time"
+        }else{
+                data[i, 'work_collapsed'] = "no work"
+        }
+}
+data['work_collapsed'] = as.factor(data$work_collapsed)
+```
+```{r}
+crosstab(data$like, data$work_collapsed, xlab= 'Work', ylab = 'Enjoyment of Video Games')
+```
+
+
+```{r}
+crosstab(data$like, data$own, xlab= 'Computer Ownership', ylab = 'Enjoyment of Video Games')
+```
+
+```{r}
+crosstab(data$like, data$sex, xlab= 'Sex', ylab = 'Enjoyment of Video Games')
+```
+
